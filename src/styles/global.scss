@@ -28,7 +28,10 @@ html {
 }
 
 body {
-  background-color: vars.$color-light-gray;
+  background: linear-gradient(to bottom, vars.$color-green 8rem, vars.$color-warm-gray 8rem, vars.$color-cold-gray);
+
+  width: 100vw;
+  height: 100vh;
 }
 
 *,
@@ -133,27 +136,34 @@ input:-webkit-autofill:focus {
 }
 
 .container {
-  padding: 0 15px;
-  margin: auto;
-  width: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 
-  @media (min-width: 576px) {
-    width: map.get(vars.$container-max-widths, "sm");
-  }
+  display: flex;
 
-  @media (min-width: 768px) {
-    width: map.get(vars.$container-max-widths, "md");
-  }
+  width: calc(100% - 2.5rem);
+  max-width: 1600px;
+  height: calc(100% - 2.5rem);
 
-  @media (min-width: 992px) {
-    width: map.get(vars.$container-max-widths, "lg");
-  }
+  box-shadow: 0 0 1.5rem vars.$color-shadow;
 
-  @media (min-width: 1200px) {
-    width: map.get(vars.$container-max-widths, "xl");
-  }
+  background-color: vars.$color-gray;
 
-  @media (min-width: 1400px) {
-    width: map.get(vars.$container-max-widths, "xxl");
+  @media (max-width: 1440px) {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
   }
+}
+
+.left-side {
+  width: 30%;
+  height: 100%;
+}
+
+.right-side {
+  width: 70%;
+  height: 100%;
 }

@@ -1,0 +1,159 @@
+@use "sass:map";
+@use "vars";
+
+html {
+  font-family: Montserrat, sans-serif;
+
+  font-size: 6px;
+
+  @media (min-width: 576px) {
+    font-size: 8px;
+  }
+
+  @media (min-width: 768px) {
+    font-size: 10px;
+  }
+
+  @media (min-width: 992px) {
+    font-size: 12px;
+  }
+
+  @media (min-width: 1200px) {
+    font-size: 14px;
+  }
+
+  @media (min-width: 1400px) {
+    font-size: 16px;
+  }
+}
+
+body {
+  background-color: vars.$color-light-gray;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+ul[class],
+ol[class] {
+  padding: 0;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+ul[class],
+ol[class],
+li,
+figure,
+figcaption,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+h1 {
+  font-size: vars.$h1-font-size;
+}
+
+h2 {
+  font-size: vars.$h2-font-size;
+}
+
+h3 {
+  font-size: vars.$h3-font-size;
+}
+
+h4 {
+  font-size: vars.$h4-font-size;
+}
+
+h5 {
+  font-size: vars.$h5-font-size;
+}
+
+h6 {
+  font-size: vars.$h6-font-size;
+}
+
+body {
+  min-height: 100vh;
+  scroll-behavior: smooth;
+  text-rendering: optimizeSpeed;
+  line-height: 1.5;
+}
+
+ul[class],
+ol[class] {
+  list-style: none;
+}
+
+a:not([class]) {
+  text-decoration-skip-ink: auto;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+article > * + * {
+  margin-top: 1em;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: black;
+  -webkit-box-shadow: none;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.container {
+  padding: 0 15px;
+  margin: auto;
+  width: 100%;
+
+  @media (min-width: 576px) {
+    width: map.get(vars.$container-max-widths, "sm");
+  }
+
+  @media (min-width: 768px) {
+    width: map.get(vars.$container-max-widths, "md");
+  }
+
+  @media (min-width: 992px) {
+    width: map.get(vars.$container-max-widths, "lg");
+  }
+
+  @media (min-width: 1200px) {
+    width: map.get(vars.$container-max-widths, "xl");
+  }
+
+  @media (min-width: 1400px) {
+    width: map.get(vars.$container-max-widths, "xxl");
+  }
+}

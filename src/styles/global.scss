@@ -34,6 +34,20 @@ body {
   height: 100vh;
 }
 
+::-webkit-scrollbar {
+  width: .4rem;
+}
+
+::-webkit-scrollbar-track {
+  border: none;
+}
+
+::-webkit-scrollbar-thumb {
+  box-shadow: none;
+
+  background-color: vars.$color-scrollbar;
+}
+
 *,
 *::before,
 *::after {
@@ -158,12 +172,29 @@ input:-webkit-autofill:focus {
   }
 }
 
-.left-side {
-  width: 30%;
-  height: 100%;
-}
-
 .right-side {
   width: 70%;
   height: 100%;
+
+  transition: .2s;
+}
+
+.left-side {
+  width: 30%;
+  height: 100%;
+
+  opacity: 1;
+  pointer-events: all;
+
+  transition: .2s;
+
+  &_hidden {
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+
+    & .right-side {
+      width: 100%;
+    }
+  }
 }

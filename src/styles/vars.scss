@@ -8,7 +8,8 @@ $h3-font-size: $font-size-base * 1.75;
 $h4-font-size: $font-size-base * 1.5;
 $h5-font-size: $font-size-base * 1.25;
 $h6-font-size: $font-size-base;
-$min-font-size: $font-size-base * .8;
+$mini-font-size: $font-size-base * .8;
+$micro-font-size: $font-size-base * .6;
 
 $font-sizes: (
         1: $h1-font-size,
@@ -17,14 +18,22 @@ $font-sizes: (
         4: $h4-font-size,
         5: $h5-font-size,
         6: $h6-font-size,
-        7: $min-font-size,
+        7: $mini-font-size,
+        8: $micro-font-size,
 );
 
 $color-green: #00A884;
+$color-pale-green: #D9FDD3;
 $color-light-green: #25d366;
 $color-gray: #F0F2F5;
-$color-darker-gray: #E9EDEF;
+$color-darker-gray: #d9dbde;
+$color-scrollbar: #cccfd0;
 $color-warm-gray: #E4E3DE;
 $color-cold-gray: #D1D7DB;
 $color-shadow: #35353510;
 $color-light-blue: #667781;
+$color-shadow-1: #727274;
+$color-shadow-2: #cccdd1;
+$color-shadow-3: #f3f4f8;
+$color-shadow-4: #ffffff;
+$color-light-yellow: #EFEAE2;

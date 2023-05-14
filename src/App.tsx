@@ -1,28 +1,41 @@
-import {useMemo, useState} from "react";
-import axios from "axios";
+import {useEffect, useState} from "react";
+import {observer, useLocalObservable} from "mobx-react-lite";
 
 import Chat from "@pages/Chat";
 import ChatsList from "@pages/ChatsList";
-
-import {API_URI} from "@utils/consts.ts";
 import NoChat from "@pages/NoChat";
+import Login from "@pages/Login";
 
-const App = () => {
-	const [chat, setChat] = useState<number | null>(null);
+import IChat from "@interfaces/IChat.ts";
 
-	const apiClient = useMemo(() => {
-		return axios.create({
-			baseURL: API_URI,
-			headers: {
-				"Content-Type": "application/json",
-			},
-		});
-	}, []);
+import ChatsStore from "@store/ChatsStore";
+
+import Loader from "@components/Loader";
+
+const App = observer(() => {
+	const [currentChat, setCurrentChat] = useState<IChat | null>(null);
+
+	const chats = useLocalObservable(() => new ChatsStore());
+
+	useEffect(() => {
+		if (currentChat) {
+			chats.getChatHistory(currentChat.id);
+		}
+	}, [currentChat, chats]);
 
 	return <main className="container">
-		<ChatsList api={apiClient} chat={chat} setChat={setChat}/>
-		{chat ? <Chat api={apiClient} chat={chat}/> : <NoChat/>}
+		<ChatsList
+			chats={chats}
+			currentChat={currentChat}
+			setCurrentChat={setCurrentChat}
+		/>
+		{
+			chats.authorized ?
+				currentChat ? <Chat chat={currentChat} chats={chats}/> : <NoChat/>
+				: <Login authorize={chats.authorize}/>
+		}
+		<Loader loading={chats.loading}/>
 	</main>;
-}
+});
 
 export default App;

@@ -1,0 +1,37 @@
+@use "../../../../styles/vars";
+
+.chat-element {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 4rem;
+  padding-left: 1rem;
+
+  &__img {
+    width: 15%;
+
+    & img {
+      width: 3rem;
+      height: 3rem;
+
+      border-radius: 50%;
+
+      background-color: vars.$color-darker-gray;
+    }
+  }
+
+  &__data {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    width: 85%;
+    height: 100%;
+    margin-left: .5rem;
+    padding: 1rem 1rem 1rem 0;
+
+    border-bottom: .1rem solid vars.$color-darker-gray;
+  }
+}

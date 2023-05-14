@@ -1,0 +1,53 @@
+@use "../../styles/vars";
+
+.login {
+  &-form {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    &__input,
+    &__submit {
+      width: 25rem;
+      padding: 1rem;
+
+      outline: none;
+      border: none;
+    }
+
+    &__input {
+      margin-bottom: 1rem;
+
+      &:first-child {
+        border-top-left-radius: .5rem;
+        border-top-right-radius: .5rem;
+      }
+    }
+
+    &__submit {
+      background-color: vars.$color-light-green;
+      color: white;
+
+      font-weight: 600;
+
+      cursor: pointer;
+
+      border-bottom-left-radius: .5rem;
+      border-bottom-right-radius: .5rem;
+
+      opacity: .5;
+
+      transition: .2s;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}

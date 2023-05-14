@@ -5,12 +5,15 @@ import IMessage from "@interfaces/IMessage.ts";
 
 export default interface IChatsStore {
 	loading: boolean;
+	loadingStatus: string | null;
+	loadingProgress: number;
 	instanceId: string | null;
 	instanceApiToken: string | null;
 	authorized: boolean;
 	chatsList: IChat[];
 	contactsList: IContact[];
 	chatHistory: IMessage[];
+	lastMessagesHistory: IMessage[];
 
 	getApiUrl(method: string): string;
 
@@ -22,21 +25,27 @@ export default interface IChatsStore {
 		data: object
 	}[], delay: number): Promise<AxiosResponse[]>;
 
+	findChatLastMessageId(messages: IMessage[], chat: IChat): number | undefined;
+
 	authorize(): void;
 
 	pushChats(chat: IChat): void;
 
-	fetchChats(): void;
+	fetchChats(): Promise<AxiosResponse>;
 
 	pushContacts(contact: IContact): void;
 
-	fetchContacts(): void;
+	fetchContacts(): Promise<AxiosResponse>;
 
-	fetchAvatars(entities: IContact[] | IChat[]): void;
+	fetchAvatars(entities: IContact[] | IChat[]): Promise<AxiosResponse[]>;
+
+	fetchLastMessages(): Promise<IMessage[]>;
 
 	getContact(id: string): IContact | undefined;
 
 	setContactsAvatars(responses: AxiosResponse[]): void;
 
 	getChatHistory(chatId: string): void;
+
+	sendMessage(chadId: string, message: string): Promise<AxiosResponse>;
 }

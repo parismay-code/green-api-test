@@ -99,6 +99,30 @@
       }
     }
   }
+
+  &-progress {
+    position: relative;
+
+    width: 20rem;
+    height: .5rem;
+
+    margin-top: 3rem;
+
+    background-color: vars.$color-darker-gray;
+
+    &__bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+
+      height: .5rem;
+      max-width: 20rem;
+
+      background-color: vars.$color-light-green;
+
+      transition: .5s ease-in-out;
+    }
+  }
 }
 
 @keyframes largePopOut {

@@ -12,10 +12,13 @@ export default class ChatsStore implements IChatsStore {
 	instanceApiToken: string | null = null;
 
 	loading = false;
+	loadingStatus: string | null = null;
+	loadingProgress = 0;
 	authorized = false;
 	chatsList: IChat[] = [];
 	contactsList: IContact[] = [];
 	chatHistory: IMessage[] = [];
+	lastMessagesHistory: IMessage[] = [];
 
 	constructor() {
 		this.authorize();
@@ -32,6 +35,8 @@ export default class ChatsStore implements IChatsStore {
 	fetchInSeries = async (promisesData: { method: string, apiMethod: string, data: object }[], delay: number) => {
 		const responses: AxiosResponse[] = [];
 
+		const stepProgress = 70 / promisesData.length;
+
 		for (const promiseData of promisesData) {
 			let request: CallableFunction;
 
@@ -46,11 +51,21 @@ export default class ChatsStore implements IChatsStore {
 					break;
 			}
 
-			responses.push(await this.delay(delay).then(() => request()));
+			responses.push(await this.delay(delay).then(() => {
+				this.loadingProgress += stepProgress;
+
+				return request();
+			}));
 		}
 
 		return responses;
 	};
+
+	findChatLastMessageId = (messages: IMessage[], chat: IChat) => {
+		return messages.findIndex((el) => {
+			return el.chatId === chat.id;
+		});
+	}
 
 	authorize = () => {
 		this.loading = true;
@@ -59,12 +74,15 @@ export default class ChatsStore implements IChatsStore {
 		this.instanceApiToken = localStorage.getItem("gapi_instance_api_token");
 
 		if (this.instanceId && this.instanceApiToken) {
-			console.log('auth: started');
+			this.loadingStatus = "Проверяем авторизацию"
+
 			axios.get(this.getApiUrl("getStateInstance"))
 				.then((response) => {
 					this.authorized = response.status === 200 && response.data.stateInstance === "authorized";
 
 					if (!this.authorized) {
+						this.loadingStatus = "Не удалось авторизоваться";
+
 						localStorage.removeItem("gapi_instance_id");
 						localStorage.removeItem("gapi_instance_api_token");
 
@@ -74,17 +92,19 @@ export default class ChatsStore implements IChatsStore {
 					}
 				})
 				.then(() => {
-					console.log('auth: done', 'fetch contacts: started');
+					this.loadingStatus = "Запрашиваем Ваши контакты";
+
 					this.fetchContacts()
 						.then((response) => {
 							if (response.status === 200) {
 								return response.data;
 							} else {
+								this.loadingStatus = "Не удалось получить список контактов";
+
 								throw new Error("Contacts fetch failed");
 							}
 						})
 						.then(async (contacts: IContact[]) => {
-							console.log('fetch contacts: done', 'push contacts: started');
 							await contacts.forEach((contact: IContact) => {
 								this.pushContacts(contact);
 							});
@@ -92,45 +112,58 @@ export default class ChatsStore implements IChatsStore {
 							return contacts;
 						})
 						.then(async (contacts) => {
-							console.log('push contacts: done', 'fetch avatars: started');
+							this.loadingStatus = "Получаем фотографии Ваших контактов";
+
 							await this.fetchAvatars(contacts)
 								.then(async (responses) => {
-									console.log('fetch avatars: done', 'set avatars: started');
 									await this.setContactsAvatars(responses);
 								})
-								.then(() => {
-									console.log('set avatars: done', 'fetch chats: started');
-									this.fetchChats()
-										.then((response) => {
-											if (response.status === 200) {
-												return response.data;
-											} else {
-												throw new Error("Chats fetch failed");
-											}
-										})
-										.then(async (chats: IChat[]) => {
-											console.log('fetch chats: done', 'push chats: started');
-											await chats.forEach((chat: IChat) => {
-												this.pushChats(chat);
-											});
+								.then(async () => {
+									this.loadingStatus = "Получаем список последних сообщений";
 
-											return chats;
+									return await this.fetchLastMessages()
+										.then((messages) => {
+											messages.forEach((message) => {
+												this.pushMessages(message);
+											})
+
+											return messages;
 										})
 										.then(() => {
-											console.log('push chats: done', 'closing loader');
-											this.loading = false;
+											this.loadingStatus = "Почти закончили, получаем список активных чатов";
+
+											this.fetchChats()
+												.then((response) => {
+													if (response.status === 200) {
+														return response.data;
+													} else {
+														throw new Error("Chats fetch failed");
+													}
+												})
+												.then(async (chats: IChat[]) => {
+													await chats
+														.forEach((chat: IChat) => {
+															this.pushChats(chat);
+														});
+
+													return chats;
+												})
+												.then(() => {
+													this.loadingStatus = "Готово! Еще немного";
+													this.loadingProgress = 100;
+
+													setTimeout(() => {
+														this.loading = false;
+													}, 2000);
+												})
+												.catch((error) => this.loadingStatus = error);
 										})
-										.catch((error) => console.log(error));
 								})
-								.catch((error) => console.log(error));
+								.catch((error) => this.loadingStatus = error);
 						})
-						.catch((error) => {
-							console.log(error);
-						});
+						.catch((error) => this.loadingStatus = error);
 				})
-				.catch((error) => {
-					console.log(error);
-				})
+				.catch((error) => this.loadingStatus = error);
 		} else {
 			this.loading = false;
 		}
@@ -147,6 +180,8 @@ export default class ChatsStore implements IChatsStore {
 	};
 
 	fetchChats = async () => {
+		this.loadingProgress += 5;
+
 		return await axios.get(this.getApiUrl("getChats"));
 	};
 
@@ -167,6 +202,8 @@ export default class ChatsStore implements IChatsStore {
 	};
 
 	fetchContacts = async () => {
+		this.loadingProgress += 5;
+
 		return await axios.get(this.getApiUrl("getContacts"));
 	};
 
@@ -175,10 +212,55 @@ export default class ChatsStore implements IChatsStore {
 			return {method: "post", apiMethod: "GetAvatar", data: {chatId: entity.id}}
 		});
 
-		return await this.fetchInSeries(promisesData, 10);
+		return await this.fetchInSeries(promisesData, 25);
 	};
 
+	pushMessages = (message: IMessage) => {
+		this.lastMessagesHistory.push({
+			chatId: message.chatId,
+			typeMessage: message.typeMessage,
+			idMessage: message.idMessage,
+			textMessage: message.textMessage,
+			statusMessage: message.statusMessage,
+			type: message.type,
+			timestamp: message.timestamp,
+			sendByApi: message.sendByApi,
+		});
+	};
+
+	fetchLastMessages = async () => {
+		this.loadingProgress += 5;
+
+		const week = 604800;
+
+		return await axios.get(this.getApiUrl("lastIncomingMessages"), {params: {minutes: week}})
+			.then(async (response) => {
+				if (response.status === 200) {
+					return response.data;
+				} else {
+					throw new Error("Incoming messages fetch failed");
+				}
+			})
+			.then(async (incomingMessages: IMessage[]) => {
+				return await axios.get(this.getApiUrl("LastOutgoingMessages"), {params: {minutes: week}})
+					.then((response) => {
+						if (response.status === 200) {
+							return incomingMessages.concat(response.data);
+						} else {
+							throw new Error("Outgoing messages fetch failed");
+						}
+					})
+					.then((messages: IMessage[]) => {
+						return messages.sort((a, b) => {
+							return b.timestamp - a.timestamp;
+						});
+					});
+			});
+	}
+
 	setContactsAvatars = (responses: AxiosResponse[]) => {
+		this.loadingProgress += 5;
+
 		responses.forEach((response, key) => {
 			if (response.status === 200) {
 				const contact = this.contactsList[key];
@@ -203,5 +285,9 @@ export default class ChatsStore implements IChatsStore {
 					this.chatHistory = response.data as IMessage[];
 				}
 			});
+	}
+
+	sendMessage = (chatId: string, message: string) => {
+		return axios.post(this.getApiUrl("sendMessage"), {chatId: chatId, message: message});
 	}
 }

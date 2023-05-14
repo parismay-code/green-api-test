@@ -1,0 +1,51 @@
+@use "../../styles/vars";
+
+.notify {
+  position: absolute;
+  right: 2rem;
+  top: 5rem;
+
+  opacity: 0;
+
+  padding: 1rem 2rem;
+
+  backdrop-filter: blur(1rem);
+
+  pointer-events: none;
+  user-select: none;
+
+  border-radius: 1rem;
+
+  text-align: center;
+
+  transition: .2s;
+
+  &_success {
+    border: .1rem solid vars.$color-success;
+    background-color: vars.$color-success-background;
+  }
+
+  &_error {
+    border: .1rem solid vars.$color-error;
+    background-color: vars.$color-error-background;
+  }
+
+  &_warning {
+    border: .1rem solid vars.$color-warning;
+    background-color: vars.$color-warning-background;
+  }
+
+  &_info {
+    border: .1rem solid vars.$color-info;
+    background-color: vars.$color-info-background;
+  }
+
+  &_hint {
+    border: .1rem solid vars.$color-hint;
+    background-color: vars.$color-hint-background;
+  }
+
+  &_active {
+    opacity: 1;
+  }
+}

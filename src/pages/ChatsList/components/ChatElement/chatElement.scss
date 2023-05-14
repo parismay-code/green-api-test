@@ -1,6 +1,8 @@
 @use "../../../../styles/vars";
 
 .chat-element {
+  position: relative;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -25,7 +27,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: center;
 
     width: 85%;
     height: 100%;
@@ -33,5 +35,18 @@
     padding: 1rem 1rem 1rem 0;
 
     border-bottom: .1rem solid vars.$color-darker-gray;
+  }
+
+  &__message {
+    font-size: map-get(vars.$font-sizes, 7);
+  }
+
+  &__time {
+    position: absolute;
+    top: .5rem;
+    right: .5rem;
+
+    font-size: map-get(vars.$font-sizes, 7);
+    color: vars.$color-light-blue;
   }
 }

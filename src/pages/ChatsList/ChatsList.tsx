@@ -4,6 +4,8 @@ import cn from "classnames";
 
 import ChatElement from "./components/ChatElement";
 
+import avatarTemplate from "@assets/avatarTemplate.jpg";
+
 import IChat from "@interfaces/IChat.ts";
 import IChatsStore from "@interfaces/IChatsStore.ts";
 
@@ -30,17 +32,18 @@ const ChatsList: FunctionComponent<ChatsListProps> = observer((
 			return chats.chatsList;
 		}
 
-		return chats.chatsList.filter((el) => {
-			const contact = chats.getContact(el.id);
+		return chats.chatsList
+			.filter((el) => {
+				const contact = chats.getContact(el.id);
 
-			return contact?.name.includes(searchQuery);
-		});
-	}, [chats, searchQuery]);
+				return contact?.name.includes(searchQuery);
+			})
+	}, [chats, chats.chatsList, searchQuery]);
 
 	return <section className={cn("chats left-side", !chats.authorized && "left-side_hidden")}>
 		<header className="chats-header">
 			<div className="chats-header__img">
-				<img src="" alt="Profile picture"/>
+				<img src={avatarTemplate} alt="Profile picture"/>
 			</div>
 		</header>
 		<form className="chats-form" onSubmit={(event) => {
@@ -56,22 +59,36 @@ const ChatsList: FunctionComponent<ChatsListProps> = observer((
 			/>
 		</form>
 		<ul className="chats-list">
-			{chatsList.map((chat, key) => {
-				return <li
-					className={cn(currentChat?.id === chat?.id && "active")}
-					key={key}
-					onClick={() => {
-						if (timeoutId) {
-							clearTimeout(timeoutId);
-						}
+			{chatsList
+				.slice()
+				.sort((a, b) => {
+					const messages = chats.lastMessagesHistory;
 
-						const timeout = setTimeout(() => setCurrentChat(chat), 1000);
+					const currentChatLastMessageId = chats.findChatLastMessageId(messages, a);
+					const nextChatLastMessageId = chats.findChatLastMessageId(messages, b);
 
-						setTimeoutId(timeout);
-					}}>
-					<ChatElement chat={chat} chats={chats}/>
-				</li>
-			})}
+					if (nextChatLastMessageId && currentChatLastMessageId) {
+						return nextChatLastMessageId - currentChatLastMessageId;
+					}
+
+					return NaN;
+				})
+				.map((chat, key) => {
+					return <li
+						className={cn(currentChat?.id === chat?.id && "active")}
+						key={key}
+						onClick={() => {
+							if (timeoutId) {
+								clearTimeout(timeoutId);
+							}
+
+							const timeout = setTimeout(() => setCurrentChat(chat), 1000);
+
+							setTimeoutId(timeout);
+						}}>
+						<ChatElement chat={chat} chats={chats}/>
+					</li>
+				})}
 		</ul>
 	</section>
 });

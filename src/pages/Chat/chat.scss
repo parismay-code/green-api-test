@@ -35,22 +35,27 @@
     }
   }
 
-  &-history {
-    width: 90%;
+  &__container {
+    position: relative;
+
     height: calc(100% - 7.5rem);
-    padding: 1rem 0;
-    margin: 0 auto;
+    width: 100%;
+    padding: 1rem 4rem;
 
     display: flex;
     flex-direction: column-reverse;
-    justify-content: flex-start;
 
     overflow-y: scroll;
+  }
+
+  &-history {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
 
     &__date,
     &__message,
     &__info {
-
       padding: .5rem;
       margin-bottom: .5rem;
 

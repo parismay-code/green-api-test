@@ -8,286 +8,414 @@ import IContact from "@interfaces/IContact.ts";
 import IMessage from "@interfaces/IMessage.ts";
 
 export default class ChatsStore implements IChatsStore {
-	instanceId: string | null = null;
-	instanceApiToken: string | null = null;
+    instanceId: string | null = null;
+    instanceApiToken: string | null = null;
+    loading = false;
+    loadingStatus: string | null = null;
+    loadingProgress = 0;
+    authorized = false;
+    chatsList: IChat[] = [];
+    currentChat: number | null = null;
+    contactsList: IContact[] = [];
+    chatHistory: IMessage[] = [];
+    lastMessagesHistory: IMessage[] = [];
 
-	loading = false;
-	loadingStatus: string | null = null;
-	loadingProgress = 0;
-	authorized = false;
-	chatsList: IChat[] = [];
-	contactsList: IContact[] = [];
-	chatHistory: IMessage[] = [];
-	lastMessagesHistory: IMessage[] = [];
+    constructor() {
+        this.authorize();
 
-	constructor() {
-		this.authorize();
+        makeAutoObservable(this);
+    }
 
-		makeAutoObservable(this);
-	}
+    setCurrentChat = (id: number) => {
+        this.currentChat = id;
+    }
 
-	getApiUrl = (method: string) => {
-		return `${API_URI}/waInstance${this.instanceId}/${method}/${this.instanceApiToken}`;
-	};
+    getApiUrl = (method: string) => {
+        return `${API_URI}/waInstance${this.instanceId}/${method}/${this.instanceApiToken}`;
+    };
 
-	delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-	fetchInSeries = async (promisesData: { method: string, apiMethod: string, data: object }[], delay: number) => {
-		const responses: AxiosResponse[] = [];
+    fetchInSeries = async (promisesData: { method: string, apiMethod: string, data: object }[], delay: number) => {
+        const responses: AxiosResponse[] = [];
 
-		const stepProgress = 70 / promisesData.length;
+        const stepProgress = 70 / promisesData.length;
 
-		for (const promiseData of promisesData) {
-			let request: CallableFunction;
+        for (const promiseData of promisesData) {
+            let request: CallableFunction;
 
-			const url = this.getApiUrl(promiseData.apiMethod);
+            const url = this.getApiUrl(promiseData.apiMethod);
 
-			switch (promiseData.method) {
-				case "get":
-					request = () => axios.get(url);
-					break;
-				case "post":
-					request = () => axios.post(url, promiseData.data);
-					break;
-			}
+            switch (promiseData.method) {
+                case "get":
+                    request = () => axios.get(url);
+                    break;
+                case "post":
+                    request = () => axios.post(url, promiseData.data);
+                    break;
+            }
 
-			responses.push(await this.delay(delay).then(() => {
-				this.loadingProgress += stepProgress;
+            responses.push(await this.delay(delay).then(() => {
+                this.loadingProgress += stepProgress;
 
-				return request();
-			}));
-		}
+                return request();
+            }));
+        }
 
-		return responses;
-	};
+        return responses;
+    };
 
-	findChatLastMessageId = (messages: IMessage[], chat: IChat) => {
-		return messages.findIndex((el) => {
-			return el.chatId === chat.id;
-		});
-	}
+    listenNotification = () => {
+        axios.get(this.getApiUrl("receiveNotification"))
+            .then((response) => {
+                if (response.status !== 200) {
+                    throw new Error("Notification receive failed");
+                }
 
-	authorize = () => {
-		this.loading = true;
+                if (!response.data) {
+                    throw new Error("No data");
+                }
 
-		this.instanceId = localStorage.getItem("gapi_instance_id");
-		this.instanceApiToken = localStorage.getItem("gapi_instance_api_token");
+                return response.data;
+            })
+            .then(async (notification) => {
+                const types = ["stateInstanceChanged", "incomingMessageReceived", "outgoingMessageReceived"];
 
-		if (this.instanceId && this.instanceApiToken) {
-			this.loadingStatus = "Проверяем авторизацию"
+                if (types.includes(notification.body.typeWebhook)) {
+                    await axios.delete(this.getApiUrl("deleteNotification") + `/${notification.receiptId}`)
+                        .then((response) => {
+                            if (response.status === 200 && response.data.result) {
+                                return notification.body;
+                            } else {
+                                throw new Error("Delete notification failed");
+                            }
+                        })
+                        .then((notification) => {
+                            switch (notification.typeWebhook) {
+                                case "stateInstanceChanged":
+                                    return this.logout();
+                                case "incomingMessageReceived":
+                                    this.lastMessagesHistory.unshift({
+                                        chatId: notification.senderData.chatId,
+                                        idMessage: notification.idMessage,
+                                        statusMessage: "",
+                                        type: "incoming",
+                                        textMessage: notification.messageData.textMessageData.textMessage,
+                                        typeMessage: notification.messageData.typeMessage,
+                                        sendByApi: true,
+                                        timestamp: notification.timestamp,
+                                    });
 
-			axios.get(this.getApiUrl("getStateInstance"))
-				.then((response) => {
-					this.authorized = response.status === 200 && response.data.stateInstance === "authorized";
+                                    if (this.currentChat && this.chatsList[this.currentChat].id === notification.senderData.chatId) {
+                                        this.chatHistory.unshift({
+                                            chatId: notification.senderData.chatId,
+                                            idMessage: notification.idMessage,
+                                            statusMessage: "",
+                                            type: "outgoing",
+                                            textMessage: notification.messageData.textMessageData.textMessage,
+                                            typeMessage: notification.messageData.typeMessage,
+                                            sendByApi: false,
+                                            timestamp: notification.timestamp,
+                                        });
+                                    }
 
-					if (!this.authorized) {
-						this.loadingStatus = "Не удалось авторизоваться";
+                                    break;
+                                case "outgoingMessageReceived":
+                                    if (notification.messageData.typeMessage !== 'textMessage') {
+                                        break;
+                                    }
 
-						localStorage.removeItem("gapi_instance_id");
-						localStorage.removeItem("gapi_instance_api_token");
+                                    this.lastMessagesHistory.unshift({
+                                        chatId: notification.senderData.chatId,
+                                        idMessage: notification.idMessage,
+                                        statusMessage: "",
+                                        type: "outgoing",
+                                        textMessage: notification.messageData.textMessageData.textMessage,
+                                        typeMessage: notification.messageData.typeMessage,
+                                        sendByApi: true,
+                                        timestamp: notification.timestamp,
+                                    });
 
-						this.loading = false;
+                                    if (this.currentChat && this.chatsList[this.currentChat].id === notification.senderData.chatId) {
+                                        this.chatHistory.unshift({
+                                            chatId: notification.senderData.chatId,
+                                            idMessage: notification.idMessage,
+                                            statusMessage: "",
+                                            type: "outgoing",
+                                            textMessage: notification.messageData.textMessageData.textMessage,
+                                            typeMessage: notification.messageData.typeMessage,
+                                            sendByApi: false,
+                                            timestamp: notification.timestamp,
+                                        });
+                                    }
 
-						throw new Error("Auth error");
-					}
-				})
-				.then(() => {
-					this.loadingStatus = "Запрашиваем Ваши контакты";
+                                    break;
+                                default:
+                                    throw new Error("Wrong method");
+                            }
+                        })
+                        .then(() => {
+                            this.listenNotification();
+                        })
+                } else {
+                    throw new Error("Received type not processed");
+                }
+            })
+            .catch(() => {
+                this.listenNotification();
+            });
+    };
 
-					this.fetchContacts()
-						.then((response) => {
-							if (response.status === 200) {
-								return response.data;
-							} else {
-								this.loadingStatus = "Не удалось получить список контактов";
+    findChatLastMessageId = (messages: IMessage[], chat: IChat) => {
+        return messages.findIndex((el) => {
+            return el.chatId === chat.id;
+        });
+    };
 
-								throw new Error("Contacts fetch failed");
-							}
-						})
-						.then(async (contacts: IContact[]) => {
-							await contacts.forEach((contact: IContact) => {
-								this.pushContacts(contact);
-							});
+    logout = () => {
+        localStorage.removeItem("gapi_instance_id");
+        localStorage.removeItem("gapi_instance_api_token");
 
-							return contacts;
-						})
-						.then(async (contacts) => {
-							this.loadingStatus = "Получаем фотографии Ваших контактов";
+        this.authorized = false;
+    };
 
-							await this.fetchAvatars(contacts)
-								.then(async (responses) => {
-									await this.setContactsAvatars(responses);
-								})
-								.then(async () => {
-									this.loadingStatus = "Получаем список последних сообщений";
+    authorize = () => {
+        this.loading = true;
 
-									return await this.fetchLastMessages()
-										.then((messages) => {
-											messages.forEach((message) => {
-												this.pushMessages(message);
-											})
+        this.instanceId = localStorage.getItem("gapi_instance_id");
+        this.instanceApiToken = localStorage.getItem("gapi_instance_api_token");
 
-											return messages;
-										})
-										.then(() => {
-											this.loadingStatus = "Почти закончили, получаем список активных чатов";
+        if (this.instanceId && this.instanceApiToken) {
+            this.loadingStatus = "Проверяем авторизацию"
 
-											this.fetchChats()
-												.then((response) => {
-													if (response.status === 200) {
-														return response.data;
-													} else {
-														throw new Error("Chats fetch failed");
-													}
-												})
-												.then(async (chats: IChat[]) => {
-													await chats
-														.forEach((chat: IChat) => {
-															this.pushChats(chat);
-														});
+            axios.get(this.getApiUrl("getStateInstance"))
+                .then((response) => {
+                    this.authorized = response.status === 200 && response.data.stateInstance === "authorized";
 
-													return chats;
-												})
-												.then(() => {
-													this.loadingStatus = "Готово! Еще немного";
-													this.loadingProgress = 100;
+                    if (!this.authorized) {
+                        this.loadingStatus = "Не удалось авторизоваться";
 
-													setTimeout(() => {
-														this.loading = false;
-													}, 2000);
-												})
-												.catch((error) => this.loadingStatus = error);
-										})
-								})
-								.catch((error) => this.loadingStatus = error);
-						})
-						.catch((error) => this.loadingStatus = error);
-				})
-				.catch((error) => this.loadingStatus = error);
-		} else {
-			this.loading = false;
-		}
-	};
+                        localStorage.removeItem("gapi_instance_id");
+                        localStorage.removeItem("gapi_instance_api_token");
 
-	pushChats = (chat: IChat) => {
-		this.chatsList.push({
-			archive: chat.archive,
-			id: chat.id,
-			notSpam: chat.notSpam,
-			ephemeralExpiration: chat.ephemeralExpiration,
-			ephemeralSettingTimestamp: chat.ephemeralSettingTimestamp,
-		});
-	};
+                        this.loading = false;
 
-	fetchChats = async () => {
-		this.loadingProgress += 5;
+                        throw new Error("Auth error");
+                    }
+                })
+                .then(() => {
+                    this.loadingStatus = "Запрашиваем Ваши контакты";
 
-		return await axios.get(this.getApiUrl("getChats"));
-	};
+                    this.fetchContacts()
+                        .then((response) => {
+                            if (response.status === 200) {
+                                return response.data;
+                            } else {
+                                this.loadingStatus = "Не удалось получить список контактов";
 
-	pushContacts = (contact: IContact) => {
-		this.contactsList.push({
-			id: contact.id,
-			name: contact.name,
-			type: contact.type,
-			avatar: contact.avatar,
-			email: contact.email,
-			lastSeen: contact.lastSeen,
-			isArchive: contact.isArchive,
-			isDisappearing: contact.isDisappearing,
-			isMute: contact.isMute,
-			messageExpiration: contact.messageExpiration,
-			muteExpiration: contact.muteExpiration,
-		});
-	};
+                                throw new Error("Contacts fetch failed");
+                            }
+                        })
+                        .then(async (contacts: IContact[]) => {
+                            await contacts.forEach((contact: IContact) => {
+                                this.pushContacts(contact);
+                            });
 
-	fetchContacts = async () => {
-		this.loadingProgress += 5;
+                            return contacts;
+                        })
+                        .then(async (contacts) => {
+                            this.loadingStatus = "Получаем фотографии Ваших контактов";
 
-		return await axios.get(this.getApiUrl("getContacts"));
-	};
+                            await this.fetchAvatars(contacts)
+                                .then(async (responses) => {
+                                    await this.setContactsAvatars(responses);
+                                })
+                                .then(async () => {
+                                    this.loadingStatus = "Получаем список последних сообщений";
 
-	fetchAvatars = async (entities: IContact[] | IChat[]) => {
-		const promisesData = entities.map((entity) => {
-			return {method: "post", apiMethod: "GetAvatar", data: {chatId: entity.id}}
-		});
+                                    return await this.fetchLastMessages()
+                                        .then((messages) => {
+                                            messages.forEach((message) => {
+                                                this.pushMessages(message);
+                                            })
 
-		return await this.fetchInSeries(promisesData, 25);
-	};
+                                            return messages;
+                                        })
+                                        .then(() => {
+                                            this.loadingStatus = "Почти закончили, получаем список активных чатов";
 
-	pushMessages = (message: IMessage) => {
-		this.lastMessagesHistory.push({
-			chatId: message.chatId,
-			typeMessage: message.typeMessage,
-			idMessage: message.idMessage,
-			textMessage: message.textMessage,
-			statusMessage: message.statusMessage,
-			type: message.type,
-			timestamp: message.timestamp,
-			sendByApi: message.sendByApi,
-		});
-	};
+                                            this.fetchChats()
+                                                .then((response) => {
+                                                    if (response.status === 200) {
+                                                        return response.data;
+                                                    } else {
+                                                        throw new Error("Chats fetch failed");
+                                                    }
+                                                })
+                                                .then(async (chats: IChat[]) => {
+                                                    await chats
+                                                        .forEach((chat: IChat) => {
+                                                            this.pushChats(chat);
+                                                        });
 
-	fetchLastMessages = async () => {
-		this.loadingProgress += 5;
+                                                    return chats;
+                                                })
+                                                .then(async () => {
+                                                    return await axios.post(this.getApiUrl("SetSettings"), {
+                                                        webhookUrl: "",
+                                                        webhookUrlToken: "",
+                                                        outgoingMessageWebhook: "yes",
+                                                        incomingWebhook: "yes",
+                                                        stateWebhook: "yes",
+                                                    })
+                                                        .then((response) => {
+                                                            if (response.status === 200 && response.data.saveSettings) {
+                                                                return true;
+                                                            } else {
+                                                                throw new Error("Setting account setting failed");
+                                                            }
+                                                        })
+                                                        .then(() => {
+                                                            this.listenNotification();
+                                                        })
+                                                        .then(() => {
+                                                            this.loadingStatus = "Готово! Еще немного";
+                                                            this.loadingProgress = 100;
 
-		const week = 604800;
+                                                            setTimeout(() => {
+                                                                this.loading = false;
+                                                            }, 2000);
+                                                        })
+                                                })
+                                        })
+                                })
+                        })
+                })
+                .catch((error) => this.loadingStatus = error);
+        } else {
+            this.loading = false;
+        }
+    };
 
-		return await axios.get(this.getApiUrl("lastIncomingMessages"), {params: {minutes: week}})
-			.then(async (response) => {
-				if (response.status === 200) {
-					return response.data;
-				} else {
-					throw new Error("Incoming messages fetch failed");
-				}
-			})
-			.then(async (incomingMessages: IMessage[]) => {
-				return await axios.get(this.getApiUrl("LastOutgoingMessages"), {params: {minutes: week}})
-					.then((response) => {
-						if (response.status === 200) {
-							return incomingMessages.concat(response.data);
-						} else {
-							throw new Error("Outgoing messages fetch failed");
-						}
-					})
-					.then((messages: IMessage[]) => {
-						return messages.sort((a, b) => {
-							return b.timestamp - a.timestamp;
-						});
-					});
-			});
-	}
+    pushChats = (chat: IChat) => {
+        this.chatsList.push({
+            archive: chat.archive,
+            id: chat.id,
+            notSpam: chat.notSpam,
+            ephemeralExpiration: chat.ephemeralExpiration,
+            ephemeralSettingTimestamp: chat.ephemeralSettingTimestamp,
+        });
+    };
 
-	setContactsAvatars = (responses: AxiosResponse[]) => {
-		this.loadingProgress += 5;
+    fetchChats = async () => {
+        this.loadingProgress += 5;
 
-		responses.forEach((response, key) => {
-			if (response.status === 200) {
-				const contact = this.contactsList[key];
+        return await axios.get(this.getApiUrl("getChats"));
+    };
 
-				if (contact) {
-					contact.avatar = response.data.urlAvatar;
-				}
-			}
-		});
-	};
+    pushContacts = (contact: IContact) => {
+        this.contactsList.push({
+            id: contact.id,
+            name: contact.name,
+            type: contact.type,
+            avatar: contact.avatar,
+            email: contact.email,
+            lastSeen: contact.lastSeen,
+            isArchive: contact.isArchive,
+            isDisappearing: contact.isDisappearing,
+            isMute: contact.isMute,
+            messageExpiration: contact.messageExpiration,
+            muteExpiration: contact.muteExpiration,
+        });
+    };
 
-	getContact = (id: string) => {
-		return this.contactsList.find((contact) => {
-			return contact.id === id;
-		});
-	};
+    fetchContacts = async () => {
+        this.loadingProgress += 5;
 
-	getChatHistory = (chatId: string) => {
-		axios.post(this.getApiUrl("GetChatHistory"), {chatId: chatId, count: 100})
-			.then((response) => {
-				if (response.status === 200) {
-					this.chatHistory = response.data as IMessage[];
-				}
-			});
-	}
+        return await axios.get(this.getApiUrl("getContacts"));
+    };
 
-	sendMessage = (chatId: string, message: string) => {
-		return axios.post(this.getApiUrl("sendMessage"), {chatId: chatId, message: message});
-	}
+    fetchAvatars = async (entities: IContact[] | IChat[]) => {
+        const promisesData = entities.slice(0, 5).map((entity) => {
+            return {method: "post", apiMethod: "GetAvatar", data: {chatId: entity.id}}
+        });
+
+        return await this.fetchInSeries(promisesData, 25);
+    };
+
+    pushMessages = (message: IMessage) => {
+        this.lastMessagesHistory.push({
+            chatId: message.chatId,
+            typeMessage: message.typeMessage,
+            idMessage: message.idMessage,
+            textMessage: message.textMessage,
+            statusMessage: message.statusMessage,
+            type: message.type,
+            timestamp: message.timestamp,
+            sendByApi: message.sendByApi,
+        });
+    };
+
+    fetchLastMessages = async () => {
+        this.loadingProgress += 5;
+
+        const week = 604800;
+
+        return await axios.get(this.getApiUrl("lastIncomingMessages"), {params: {minutes: week}})
+            .then(async (response) => {
+                if (response.status === 200) {
+                    return response.data;
+                } else {
+                    throw new Error("Incoming messages fetch failed");
+                }
+            })
+            .then(async (incomingMessages: IMessage[]) => {
+                return await axios.get(this.getApiUrl("LastOutgoingMessages"), {params: {minutes: week}})
+                    .then((response) => {
+                        if (response.status === 200) {
+                            return incomingMessages.concat(response.data);
+                        } else {
+                            throw new Error("Outgoing messages fetch failed");
+                        }
+                    })
+                    .then((messages: IMessage[]) => {
+                        return messages.sort((a, b) => {
+                            return b.timestamp - a.timestamp;
+                        });
+                    });
+            });
+    };
+
+    setContactsAvatars = (responses: AxiosResponse[]) => {
+        this.loadingProgress += 5;
+
+        responses.forEach((response, key) => {
+            if (response.status === 200) {
+                const contact = this.contactsList[key];
+
+                if (contact) {
+                    contact.avatar = response.data.urlAvatar;
+                }
+            }
+        });
+    };
+
+    getContact = (id: string) => {
+        return this.contactsList.find((contact) => {
+            return contact.id === id;
+        });
+    };
+
+    getChatHistory = (chatId: string) => {
+        axios.post(this.getApiUrl("GetChatHistory"), {chatId: chatId, count: 100})
+            .then((response) => {
+                if (response.status === 200) {
+                    this.chatHistory = response.data as IMessage[];
+                }
+            });
+    };
+
+    sendMessage = (chatId: string, message: string) => {
+        return axios.post(this.getApiUrl("sendMessage"), {chatId: chatId, message: message});
+    };
 }

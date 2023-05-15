@@ -11,9 +11,12 @@ export default interface IChatsStore {
 	instanceApiToken: string | null;
 	authorized: boolean;
 	chatsList: IChat[];
+	currentChat: number | null;
 	contactsList: IContact[];
 	chatHistory: IMessage[];
 	lastMessagesHistory: IMessage[];
+
+	setCurrentChat(id: number): void;
 
 	getApiUrl(method: string): string;
 
@@ -25,7 +28,9 @@ export default interface IChatsStore {
 		data: object
 	}[], delay: number): Promise<AxiosResponse[]>;
 
-	findChatLastMessageId(messages: IMessage[], chat: IChat): number | undefined;
+	findChatLastMessageId(messages: IMessage[], chat: IChat): number;
+
+	listenNotification(): void;
 
 	authorize(): void;
 

@@ -10,6 +10,7 @@ import formatContactName from "@utils/formatContactName.ts";
 import formatDate from "@utils/formatDate.ts";
 
 import "./chatElement.scss";
+import formatTime from "@utils/formatTime.ts";
 
 type ChatElementProps = {
 	chat: IChat,
@@ -46,12 +47,12 @@ const ChatElement: FunctionComponent<ChatElementProps> = observer(({chats, chat}
 
 		const now = new Date();
 
-		const date = new Date(lastMessage.timestamp);
+		const date = new Date(lastMessage.timestamp * 1000);
 
 		const sameYear = now.getFullYear() === date.getFullYear();
 
 		if (formatDate(date, true) === formatDate(now, true)) {
-			return `${date.getHours()}:${date.getMinutes()}`;
+			return formatTime(date, false);
 		}
 
 		return formatDate(date, !sameYear);
@@ -59,7 +60,7 @@ const ChatElement: FunctionComponent<ChatElementProps> = observer(({chats, chat}
 
 	return <div className="chat-element">
 		<div className="chat-element__img">
-			<img src={contact?.avatar ? contact.avatar : avatarTemplate} alt="Chat picture"/>
+			<img src={contact?.avatar || avatarTemplate} alt="Chat picture"/>
 		</div>
 		<div className="chat-element__data">
 			<p className="chat-element__name">{name}</p>

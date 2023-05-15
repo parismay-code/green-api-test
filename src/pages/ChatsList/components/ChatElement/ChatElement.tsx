@@ -33,7 +33,7 @@ const ChatElement: FunctionComponent<ChatElementProps> = observer(({chats, chat}
 	}, [chat, chats, chats.lastMessagesHistory.length]);
 
 	const lastMessageText = useMemo(() => {
-		if (lastMessage && lastMessage.textMessage.length > 45) {
+		if (lastMessage?.textMessage && lastMessage.textMessage.length > 45) {
 			return `${lastMessage.textMessage.slice(0, 45)}...`
 		}
 

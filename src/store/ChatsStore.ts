@@ -93,7 +93,21 @@ export default class ChatsStore implements IChatsStore {
                         .then((notification) => {
                             switch (notification.typeWebhook) {
                                 case "stateInstanceChanged":
-                                    return this.logout();
+                                    if (notification.stateInstance !== "authorized") {
+                                        localStorage.removeItem("gapi_instance_id");
+                                        localStorage.removeItem("gapi_instance_api_token");
+
+                                        this.authorized = false;
+                                    } else if (this.instanceId && this.instanceApiToken) {
+                                        localStorage.setItem("gapi_instance_id", this.instanceId);
+                                        localStorage.setItem("gapi_instance_api_token", this.instanceApiToken);
+
+                                        this.authorized = true;
+                                    } else {
+                                        this.authorized = false;
+                                    }
+
+                                    break;
                                 case "incomingMessageReceived":
                                     this.lastMessagesHistory.unshift({
                                         chatId: notification.senderData.chatId,
@@ -111,7 +125,7 @@ export default class ChatsStore implements IChatsStore {
                                             chatId: notification.senderData.chatId,
                                             idMessage: notification.idMessage,
                                             statusMessage: "",
-                                            type: "outgoing",
+                                            type: "incoming",
                                             textMessage: notification.messageData.textMessageData.textMessage,
                                             typeMessage: notification.messageData.typeMessage,
                                             sendByApi: false,
@@ -170,13 +184,6 @@ export default class ChatsStore implements IChatsStore {
         return messages.findIndex((el) => {
             return el.chatId === chat.id;
         });
-    };
-
-    logout = () => {
-        localStorage.removeItem("gapi_instance_id");
-        localStorage.removeItem("gapi_instance_api_token");
-
-        this.authorized = false;
     };
 
     authorize = () => {
@@ -291,7 +298,7 @@ export default class ChatsStore implements IChatsStore {
                                 })
                         })
                 })
-                .catch((error) => this.loadingStatus = error);
+                .catch((error) => console.log(error.message));
         } else {
             this.loading = false;
         }
@@ -336,7 +343,7 @@ export default class ChatsStore implements IChatsStore {
     };
 
     fetchAvatars = async (entities: IContact[] | IChat[]) => {
-        const promisesData = entities.slice(0, 5).map((entity) => {
+        const promisesData = entities.map((entity) => {
             return {method: "post", apiMethod: "GetAvatar", data: {chatId: entity.id}}
         });
 
@@ -359,9 +366,9 @@ export default class ChatsStore implements IChatsStore {
     fetchLastMessages = async () => {
         this.loadingProgress += 5;
 
-        const week = 604800;
+        const minutesInYear = 526000;
 
-        return await axios.get(this.getApiUrl("lastIncomingMessages"), {params: {minutes: week}})
+        return await axios.get(this.getApiUrl("lastIncomingMessages"), {params: {minutes: minutesInYear * 8}})
             .then(async (response) => {
                 if (response.status === 200) {
                     return response.data;
@@ -370,7 +377,7 @@ export default class ChatsStore implements IChatsStore {
                 }
             })
             .then(async (incomingMessages: IMessage[]) => {
-                return await axios.get(this.getApiUrl("LastOutgoingMessages"), {params: {minutes: week}})
+                return await axios.get(this.getApiUrl("LastOutgoingMessages"), {params: {minutes: minutesInYear * 8}})
                     .then((response) => {
                         if (response.status === 200) {
                             return incomingMessages.concat(response.data);
@@ -379,9 +386,13 @@ export default class ChatsStore implements IChatsStore {
                         }
                     })
                     .then((messages: IMessage[]) => {
-                        return messages.sort((a, b) => {
-                            return b.timestamp - a.timestamp;
-                        });
+                        return messages
+                            .filter((message) => {
+                                return message.typeMessage === "textMessage" || message.typeMessage === "extendedTextMessage";
+                            })
+                            .sort((a, b) => {
+                                return b.timestamp - a.timestamp;
+                            });
                     });
             });
     };
@@ -410,7 +421,10 @@ export default class ChatsStore implements IChatsStore {
         axios.post(this.getApiUrl("GetChatHistory"), {chatId: chatId, count: 100})
             .then((response) => {
                 if (response.status === 200) {
-                    this.chatHistory = response.data as IMessage[];
+                    this.chatHistory = response.data
+                        .filter((message: IMessage) => {
+                            return message.typeMessage === "textMessage" || message.typeMessage === "extendedTextMessage";
+                        }) as IMessage[];
                 }
             });
     };

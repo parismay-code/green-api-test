@@ -88,6 +88,8 @@ const Chat: FunctionComponent<ChatProps> = observer(({chats, chat, notify}) => {
                     const isNewDate = prevMessage ?
                         date.getDate() - new Date(prevMessage.timestamp * 1000).getDate() > 0 : true;
 
+                    console.log(message);
+
                     return <Fragment key={key}>
                         {isNewDate && <div className="chat-history__date">
                             <span>{formatDate(date, true)}</span>
@@ -95,12 +97,14 @@ const Chat: FunctionComponent<ChatProps> = observer(({chats, chat, notify}) => {
                         <div
                             className={cn("chat-history__message", `chat-history__message_${message.type}`)}
                         >
-							<span className="chat-history__text">
+							<div className="chat-history__text">
+                                <pre>
 								{message.textMessage}
+                                </pre>
                                 <span className="chat-history__time">
                                     {formatTime(date, false)}
                                 </span>
-							</span>
+							</div>
                         </div>
                     </Fragment>
                 })}

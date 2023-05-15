@@ -64,10 +64,15 @@
       position: relative;
 
       width: min-content;
-      padding: .5rem 1rem;
       border-radius: .5rem;
 
       background-color: white;
+
+      & pre {
+        font-family: Montserrat, sans-serif;
+        padding: 0;
+        margin: 0;
+      }
     }
 
     &__date,
@@ -75,7 +80,6 @@
       & span {
         position: relative;
 
-        width: min-content;
         padding: .5rem 1rem;
         border-radius: .5rem;
 
@@ -114,6 +118,7 @@
     }
 
     &__message_outgoing &__text {
+      float: right;
       background-color: vars.$color-pale-green;
 
       &::before {
